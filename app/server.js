@@ -648,6 +648,259 @@ async function initDatabase() {
   `);
 
   /*
+    Vollständiges Fresh-Install-Schema.
+
+    Diese Migration ergänzt alle Tabellen, Spalten,
+    Constraints und Indizes, die eine gewachsene
+    Installation bereits besitzt.
+  */
+
+  await pool.query(`
+    CREATE EXTENSION IF NOT EXISTS pg_trgm
+  `);
+
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS categories (
+      id UUID PRIMARY KEY,
+      name TEXT NOT NULL,
+      parent_id UUID,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS tags (
+      id UUID PRIMARY KEY,
+      name TEXT UNIQUE NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    )
+  `);
+
+
+  await pool.query(`
+    ALTER TABLE documents
+      ADD COLUMN IF NOT EXISTS category_id UUID,
+      ADD COLUMN IF NOT EXISTS source_email_from TEXT,
+      ADD COLUMN IF NOT EXISTS source_email_subject TEXT,
+      ADD COLUMN IF NOT EXISTS source_email_message_id TEXT,
+      ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS previous_status TEXT,
+      ADD COLUMN IF NOT EXISTS page_count INTEGER
+  `);
+
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS document_tags (
+      document_id UUID NOT NULL,
+      tag_id UUID NOT NULL,
+      PRIMARY KEY (document_id, tag_id)
+    )
+  `);
+
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS mail_imports (
+      id UUID PRIMARY KEY,
+      mailbox TEXT NOT NULL,
+      uidvalidity TEXT NOT NULL,
+      uid BIGINT NOT NULL,
+      message_id TEXT,
+      sender TEXT,
+      subject TEXT,
+      received_at TIMESTAMPTZ,
+      eml_path TEXT,
+      attachment_count INTEGER NOT NULL DEFAULT 0,
+      imported_count INTEGER NOT NULL DEFAULT 0,
+      duplicate_count INTEGER NOT NULL DEFAULT 0,
+      status TEXT NOT NULL DEFAULT 'processing',
+      error TEXT,
+      imported_at TIMESTAMPTZ,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (mailbox, uidvalidity, uid)
+    )
+  `);
+
+
+  /*
+    ALTER TABLE ... ADD CONSTRAINT unterstützt in PostgreSQL
+    kein allgemeines IF NOT EXISTS. Deshalb werden die
+    vorhandenen Constraints über pg_constraint geprüft.
+  */
+
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'categories_parent_id_fkey'
+      ) THEN
+        ALTER TABLE categories
+          ADD CONSTRAINT categories_parent_id_fkey
+          FOREIGN KEY (parent_id)
+          REFERENCES categories(id)
+          ON DELETE SET NULL;
+      END IF;
+    END
+    $$
+  `);
+
+
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'documents_category_id_fkey'
+      ) THEN
+        ALTER TABLE documents
+          ADD CONSTRAINT documents_category_id_fkey
+          FOREIGN KEY (category_id)
+          REFERENCES categories(id)
+          ON DELETE SET NULL;
+      END IF;
+    END
+    $$
+  `);
+
+
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'document_tags_document_id_fkey'
+      ) THEN
+        ALTER TABLE document_tags
+          ADD CONSTRAINT document_tags_document_id_fkey
+          FOREIGN KEY (document_id)
+          REFERENCES documents(id)
+          ON DELETE CASCADE;
+      END IF;
+    END
+    $$
+  `);
+
+
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'document_tags_tag_id_fkey'
+      ) THEN
+        ALTER TABLE document_tags
+          ADD CONSTRAINT document_tags_tag_id_fkey
+          FOREIGN KEY (tag_id)
+          REFERENCES tags(id)
+          ON DELETE CASCADE;
+      END IF;
+    END
+    $$
+  `);
+
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_categories_parent_id
+      ON categories(parent_id)
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_document_tags_tag_id
+      ON document_tags(tag_id, document_id)
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_documents_category
+      ON documents(category_id)
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_documents_deleted_at
+      ON documents(deleted_at)
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_documents_document_date
+      ON documents(document_date DESC)
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_documents_inbox_received
+      ON documents(received_at DESC)
+      WHERE status = 'inbox'
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_documents_metadata_errors
+      ON documents(created_at DESC)
+      WHERE suggestion_status = 'error'
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_documents_metadata_queue
+      ON documents(created_at)
+      WHERE
+        status = 'inbox'
+        AND ocr_status = 'done'
+        AND suggestion_status = 'pending'
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_documents_notes_trgm
+      ON documents
+      USING gin (notes gin_trgm_ops)
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_documents_ocr_errors
+      ON documents(created_at DESC)
+      WHERE ocr_status = 'error'
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_documents_ocr_queue
+      ON documents(created_at)
+      WHERE ocr_status = 'pending'
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_documents_ocr_text_trgm
+      ON documents
+      USING gin (ocr_text gin_trgm_ops)
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_documents_reference_trgm
+      ON documents
+      USING gin (reference gin_trgm_ops)
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_documents_sender_trgm
+      ON documents
+      USING gin (sender gin_trgm_ops)
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_documents_title_trgm
+      ON documents
+      USING gin (title gin_trgm_ops)
+  `);
+
+  await pool.query(`
+    CREATE INDEX IF NOT EXISTS idx_mail_imports_status
+      ON mail_imports(status)
+  `);
+
+
+
+  /*
     Standard-Administrator für eine neue Installation.
 
     Benutzer: admin

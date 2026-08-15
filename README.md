@@ -131,16 +131,18 @@ Weitere Informationen:
 
 ## Systemstatus
 
-Das DMS kann zusätzliche Informationen über den Host und die
-Docker-Container anzeigen.
-
-Der optionale Collector wird installiert mit:
+Für die vollständige Systemstatus-Anzeige wird der mitgelieferte
+Host-Collector installiert:
 
 ~~~bash
 sudo ./scripts/install-system-stats.sh
 ~~~
 
-Er aktualisiert die Statusinformationen standardmäßig einmal pro Minute.
+Der Installer übernimmt `DMS_DATA_DIR` automatisch aus der lokalen
+`.env` und richtet einen systemd-Timer ein.
+
+Der Collector aktualisiert die Statusinformationen standardmäßig
+einmal pro Minute.
 
 ## Reverse Proxy und HTTPS
 

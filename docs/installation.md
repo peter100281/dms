@@ -176,11 +176,14 @@ Weitere Informationen:
 
 ## Systemstatus
 
-Der optionale Systemstatus-Collector kann installiert werden mit:
+Für die vollständige Systemstatus-Anzeige wird nach dem Start des
+Docker-Stacks der Host-Collector installiert:
 
 ~~~bash
 sudo ./scripts/install-system-stats.sh
 ~~~
+
+Der Installer liest `DMS_DATA_DIR` automatisch aus der lokalen `.env`.
 
 Status prüfen:
 
@@ -193,6 +196,9 @@ Der Collector schreibt seine Daten nach:
 ~~~text
 <DMS_DATA_DIR>/status/system.json
 ~~~
+
+Nach wenigen Sekunden sollte die Seite **System** den Zustand von
+PostgreSQL, Redis, Mailimport, OCR und Status-Collector anzeigen.
 
 ## Aktualisierung
 
