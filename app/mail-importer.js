@@ -80,21 +80,53 @@ function decryptMailPassword(value) {
 
 async function loadMailSettings() {
 
-  const result =
-    await pool.query(`
-      SELECT
-        enabled,
-        host,
-        port,
-        secure,
-        username,
-        password_enc,
-        mailbox,
-        processed_folder,
-        poll_seconds
-      FROM mail_settings
-      WHERE id = 1
-    `);
+  let result;
+
+  try {
+    result =
+      await pool.query(`
+        SELECT
+          enabled,
+          host,
+          port,
+          secure,
+          username,
+          password_enc,
+          mailbox,
+          processed_folder,
+          poll_seconds
+        FROM mail_settings
+        WHERE id = 1
+      `);
+  } catch (err) {
+    /*
+      Bei einer komplett neuen Installation kann der
+      Mailimporter wenige Sekunden vor der Hauptanwendung
+      starten. In diesem Moment existiert mail_settings
+      noch nicht.
+
+      PostgreSQL 42P01 = undefined_table.
+
+      Dieser Zustand ist während des Bootstrap normal.
+      Alle anderen Datenbankfehler werden weiterhin
+      unverändert weitergereicht.
+    */
+    if (err && err.code === '42P01') {
+      return {
+        enabled: false,
+        host: '',
+        port: 993,
+        secure: true,
+        username: '',
+        password: '',
+        mailbox: 'INBOX',
+        processedFolder: 'DMS-Importiert',
+        pollSeconds: 30
+      };
+    }
+
+    throw err;
+  }
 
   if (result.rowCount !== 1) {
     return {
