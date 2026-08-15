@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
+  <title>DMS – Dokumente</title>
+
+  <link
+    rel="stylesheet"
+    href="/static/app.css"
+  >
+</head>
+
+<body>
+
+<header class="topbar">
+
+  <strong><%= appName %></strong>
+
+  <div class="topbar-right">
+    <span><%= username %></span>
+
+    <form method="post" action="/logout">
+      <input
+        type="hidden"
+        name="_csrf"
+        value="<%= csrfToken %>"
+      >
+
+      <button class="button-secondary">
+        Abmelden
+      </button>
+    </form>
+  </div>
+
+</header>
+
+
+<div class="app-layout">
+
+  <aside class="sidebar">
+
+    <nav>
+      <a href="/inbox">
+        📥 Sammler
+      </a>
+
+      <a
+        href="/documents"
+        class="active"
+      >
+        📄 Dokumente
+      </a>
+
+      <a href="/timeline">
+        📅 Chronologisch
+      </a>
+
+      <a href="/categories">
+        🏷 Kategorien
+      </a>
+
+      <a href="/search">
+        🔎 Suche
+      </a>
+
+      <a href="/trash">
+        🗑 Papierkorb
+      </a>
+
+      <% if (isAdmin) { %>
+      <a href="/account">👤 Mein Konto</a>
+
+      <a href="/settings">⚙ Einstellungen</a>
+      <a href="/system">⚙ System</a>
+      <a href="/users">👥 Benutzer</a>
+      <% } %>
+    </nav>
+
+  </aside>
+
+
+  <main class="content">
+
+    <div class="page-title">
+
+      <h1>Dokumente</h1>
+
+      <p>
+        Archivierte Dokumente filtern und öffnen.
+      </p>
+
+    </div>
+
+
+    <% if (typeof message !== 'undefined' && message) { %>
+
+      <div class="message">
+        <%= message %>
+      </div>
+
+    <% } %>
+
+
+
+    <%
+      function archiveFormatBytes(bytes) {
+        const value = Number(bytes || 0);
+
+        if (value < 1024) {
+          return value + ' B';
+        }
+
+        if (value < 1024 * 1024) {
+          return (value / 1024).toFixed(1) + ' KB';
+        }
+
+        if (value < 1024 * 1024 * 1024) {
+          return (value / 1024 / 1024).toFixed(1) + ' MB';
+        }
+
+        return (
+          value / 1024 / 1024 / 1024
+        ).toFixed(2) + ' GB';
+      }
+    %>
+
+    <div class="archive-statistics">
+
+      <div class="archive-stat-card">
+        <div class="archive-stat-icon">📄</div>
+
+        <div>
+          <div class="archive-stat-value">
+            <%= Number(archiveStats.document_count || 0).toLocaleString('de-DE') %>
+          </div>
+
+          <div class="archive-stat-label">
+            Dokumente archiviert
+          </div>
+        </div>
+      </div>
+
+
+      <div class="archive-stat-card">
+        <div class="archive-stat-icon">📑</div>
+
+        <div>
+          <div class="archive-stat-value">
+            <%= Number(archiveStats.total_pages || 0).toLocaleString('de-DE') %>
+          </div>
+
+          <div class="archive-stat-label">
+            Seiten insgesamt
+          </div>
+        </div>
+      </div>
+
+
+      <div class="archive-stat-card">
+        <div class="archive-stat-icon">💾</div>
+
+        <div>
+          <div class="archive-stat-value">
+            <%= archiveFormatBytes(archiveStats.total_bytes) %>
+          </div>
+
+          <div class="archive-stat-label">
+            Speicherplatz Originale
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+
+    <form
+      method="get"
+      action="/documents"
+      class="archive-filter"
+    >
+
+      <div class="filter-field">
+
+        <label for="category">
+          Kategorie
+        </label>
+
+        <select
+          id="category"
+          name="category"
+        >
+
+          <option value="">
+            Alle Kategorien
+          </option>
+
+          <% categories.forEach(category => { %>
+
+            <option
+              value="<%= category.id %>"
+              <%= filters.category === category.id
+                ? 'selected'
+                : ''
+              %>
+            >
+
+              <%= category.parent_name
+                ? category.parent_name
+                  + ' → '
+                  + category.name
+                : category.name
+              %>
+
+            </option>
+
+          <% }); %>
+
+        </select>
+
+      </div>
+
+
+      <div class="filter-field">
+
+        <label for="from">
+          Von
+        </label>
+
+        <input
+          id="from"
+          type="date"
+          name="from"
+          value="<%= filters.from %>"
+        >
+
+      </div>
+
+
+      <div class="filter-field">
+
+        <label for="to">
+          Bis
+        </label>
+
+        <input
+          id="to"
+          type="date"
+          name="to"
+          value="<%= filters.to %>"
+        >
+
+      </div>
+
+
+      <div class="filter-actions">
+
+        <button type="submit">
+          Filtern
+        </button>
+
+        <a
+          href="/documents"
+          class="button-secondary"
+        >
+          Zurücksetzen
+        </a>
+
+      </div>
+
+    </form>
+
+
+    <div class="archive-list">
+
+      <% if (documents.length === 0) { %>
+
+        <div class="empty-state">
+
+          <h3>Keine Dokumente</h3>
+
+          <p>
+            Für die gewählten Filter wurden
+            keine Dokumente gefunden.
+          </p>
+
+        </div>
+
+      <% } %>
+
+
+      <% documents.forEach(doc => { %>
+
+        <article class="document-card archive-card">
+
+          <div class="document-icon">
+            PDF
+          </div>
+
+
+          <div class="document-info">
+
+            <h3>
+              <%= doc.title %>
+            </h3>
+
+
+            <div class="document-meta">
+
+              <% if (doc.document_date) { %>
+
+                <span>
+                  📅
+                  <%= new Date(
+                    doc.document_date
+                  ).toLocaleDateString('de-DE') %>
+                </span>
+
+              <% } else { %>
+
+                <span>
+                  📅 Eingang
+                  <%= new Date(
+                    doc.received_at
+                  ).toLocaleDateString('de-DE') %>
+                </span>
+
+              <% } %>
+
+
+              <% if (doc.sender) { %>
+
+                <span>•</span>
+
+                <span>
+                  <%= doc.sender %>
+                </span>
+
+              <% } %>
+
+
+              <% if (doc.category_name) { %>
+
+                <span>•</span>
+
+                <span>
+                  🏷
+
+                  <%= doc.parent_category_name
+                    ? doc.parent_category_name
+                      + ' → '
+                      + doc.category_name
+                    : doc.category_name
+                  %>
+
+                </span>
+
+              <% } %>
+
+            </div>
+
+
+            <div class="archive-extra document-stats">
+
+              <% if (doc.page_count) { %>
+
+                <span>
+                  📄 <%= doc.page_count %>
+                  <%= Number(doc.page_count) === 1 ? 'Seite' : 'Seiten' %>
+                </span>
+
+              <% } %>
+
+              <span>
+                💾
+                <%= (
+                  Number(doc.file_size) /
+                  1024 /
+                  1024
+                ).toFixed(2) %> MB
+              </span>
+
+            </div>
+
+
+            <% if (doc.reference) { %>
+
+              <div class="archive-extra">
+
+                Referenz:
+
+                <strong>
+                  <%= doc.reference %>
+                </strong>
+
+              </div>
+
+            <% } %>
+
+
+            <% if (doc.tags) { %>
+
+              <div class="tag-line">
+
+                <% doc.tags
+                  .split(', ')
+                  .forEach(tag => { %>
+
+                  <span class="tag">
+                    <%= tag %>
+                  </span>
+
+                <% }); %>
+
+              </div>
+
+            <% } %>
+
+          </div>
+
+
+          <div class="document-actions">
+
+            <a
+              href="/documents/<%= doc.id %>"
+              class="button-secondary"
+            >
+              Details
+            </a>
+
+            <a
+              href="/documents/<%= doc.id %>/file"
+              target="_blank"
+              class="button-secondary"
+            >
+              PDF
+            </a>
+
+            <a
+              href="/documents/<%= doc.id %>/sort"
+              class="button-secondary"
+            >
+              Bearbeiten
+            </a>
+
+            <form
+              method="post"
+              action="/documents/<%= doc.id %>/trash"
+            
+              data-confirm="Dokument wirklich in den Papierkorb verschieben?">
+
+              <input
+                type="hidden"
+                name="_csrf"
+                value="<%= csrfToken %>"
+              >
+
+              <input
+                type="hidden"
+                name="return_to"
+                value="/documents"
+              >
+
+              <button
+                type="submit"
+                class="danger-button"
+              >
+                Löschen
+              </button>
+            </form>
+
+          </div>
+
+        </article>
+
+      <% }); %>
+
+    </div>
+
+  </main>
+
+</div>
+
+
+<script
+  src="/static/app.js"
+  defer
+></script>
+
+</body>
+</html>

@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>DMS – Kategorien</title>
+
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+
+<body>
+
+<header class="topbar">
+
+  <strong><%= appName %></strong>
+
+  <div class="topbar-right">
+    <span><%= username %></span>
+
+    <form method="post" action="/logout">
+      <input
+        type="hidden"
+        name="_csrf"
+        value="<%= csrfToken %>"
+      >
+
+      <button class="button-secondary">
+        Abmelden
+      </button>
+    </form>
+  </div>
+
+</header>
+
+
+<div class="app-layout">
+
+  <aside class="sidebar">
+
+    <nav>
+      <a href="/inbox">📥 Sammler</a>
+      <a href="/documents">📄 Dokumente</a>
+      <a href="/timeline">📅 Chronologisch</a>
+
+      <a href="/categories" class="active">
+        🏷 Kategorien
+      </a>
+
+      <a href="/search">🔎 Suche</a>
+      <a href="/trash">🗑 Papierkorb</a>
+
+      <% if (isAdmin) { %>
+      <a href="/account">👤 Mein Konto</a>
+
+      <a href="/settings">⚙ Einstellungen</a>
+      <a href="/system">⚙ System</a>
+      <a href="/users">👥 Benutzer</a>
+      <% } %>
+    </nav>
+
+  </aside>
+
+
+  <main class="content">
+
+    <div class="page-title">
+      <h1>Kategorien</h1>
+
+      <p>
+        Kategorien anlegen, umbenennen, verschieben und löschen.
+      </p>
+    </div>
+
+
+    <section class="upload-box">
+
+      <h2>Neue Kategorie</h2>
+
+      <form
+        method="post"
+        action="/categories/create"
+        class="category-create-form"
+      >
+              <input
+                type="hidden"
+                name="_csrf"
+                value="<%= csrfToken %>"
+              >
+
+
+        <input
+          type="text"
+          name="name"
+          placeholder="Kategoriename"
+          required
+        >
+
+        <select name="parent_id">
+
+          <option value="">
+            Hauptkategorie
+          </option>
+
+          <% categories
+            .filter(category => !category.parent_id)
+            .forEach(category => { %>
+
+            <option value="<%= category.id %>">
+              Unterkategorie von <%= category.name %>
+            </option>
+
+          <% }); %>
+
+        </select>
+
+        <button type="submit">
+          Hinzufügen
+        </button>
+
+      </form>
+
+    </section>
+
+
+    <section>
+
+      <h2>Vorhandene Kategorien</h2>
+
+
+      <% if (categories.length === 0) { %>
+
+        <div class="empty-state">
+          Noch keine Kategorien vorhanden.
+        </div>
+
+      <% } %>
+
+
+      <div class="category-edit-list">
+
+        <% categories.forEach(category => { %>
+
+          <div
+            class="category-edit-row <%= category.parent_id
+              ? 'category-child-row'
+              : ''
+            %>"
+          >
+
+            <form
+              method="post"
+              action="/categories/<%= category.id %>/update"
+              class="category-edit-form"
+            >
+              <input
+                type="hidden"
+                name="_csrf"
+                value="<%= csrfToken %>"
+              >
+
+
+              <input
+                type="text"
+                name="name"
+                value="<%= category.name %>"
+                required
+              >
+
+
+              <select name="parent_id">
+
+                <option value="">
+                  Hauptkategorie
+                </option>
+
+                <% categories
+                  .filter(parent =>
+                    !parent.parent_id &&
+                    parent.id !== category.id
+                  )
+                  .forEach(parent => { %>
+
+                  <option
+                    value="<%= parent.id %>"
+                    <%= category.parent_id === parent.id
+                      ? 'selected'
+                      : ''
+                    %>
+                  >
+                    Unterkategorie von <%= parent.name %>
+                  </option>
+
+                <% }); %>
+
+              </select>
+
+
+              <button type="submit">
+                Speichern
+              </button>
+
+            </form>
+
+
+            <form
+              method="post"
+              action="/categories/<%= category.id %>/delete"
+              data-confirm="Kategorie wirklich löschen? Dokumente bleiben erhalten und werden auf ohne Kategorie gesetzt."
+            >
+              <input
+                type="hidden"
+                name="_csrf"
+                value="<%= csrfToken %>"
+              >
+
+
+              <button
+                type="submit"
+                class="danger-button"
+              >
+                Löschen
+              </button>
+
+            </form>
+
+          </div>
+
+        <% }); %>
+
+      </div>
+
+    </section>
+
+  </main>
+
+</div>
+
+
+<script
+  src="/static/app.js"
+  defer
+></script>
+
+</body>
+</html>

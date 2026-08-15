@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
+  <title>Fehlerzentrale – <%= appName %></title>
+
+  <link
+    rel="stylesheet"
+    href="/static/app.css"
+  >
+</head>
+
+<body>
+
+<header class="topbar">
+
+  <strong><%= appName %></strong>
+
+  <div class="topbar-right">
+    <span><%= username %></span>
+
+    <form method="post" action="/logout">
+      <input
+        type="hidden"
+        name="_csrf"
+        value="<%= csrfToken %>"
+      >
+
+      <button class="button-secondary">
+        Abmelden
+      </button>
+    </form>
+  </div>
+
+</header>
+
+
+<div class="app-layout">
+
+  <aside class="sidebar">
+
+    <nav>
+      <a href="/inbox">📥 Sammler</a>
+      <a href="/documents">📄 Dokumente</a>
+      <a href="/timeline">📅 Chronologisch</a>
+      <a href="/categories">🏷 Kategorien</a>
+      <a href="/search">🔎 Suche</a>
+      <a href="/trash">🗑 Papierkorb</a>
+
+      <a href="/account">👤 Mein Konto</a>
+
+      <% if (isAdmin) { %>
+      <a href="/settings">
+        ⚙ Einstellungen
+      </a>
+      <a href="/system" class="active">
+        ⚙ System
+      </a>
+
+      <a href="/users">👥 Benutzer</a>
+      <% } %>
+    </nav>
+
+  </aside>
+
+
+  
+
+<main class="container system-page">
+
+  <%
+    function errorDate(value) {
+
+      if (!value)
+        return '—';
+
+      const d =
+        new Date(value);
+
+      if (
+        Number.isNaN(
+          d.getTime()
+        )
+      )
+        return String(value);
+
+      return d.toLocaleString(
+        'de-DE'
+      );
+    }
+  %>
+
+
+  <div class="page-header">
+
+    <div>
+
+      <h1>Fehlerzentrale</h1>
+
+      <p class="muted">
+        OCR-, Metadaten- und Mailimportfehler
+      </p>
+
+    </div>
+
+    <a
+      href="/system"
+      class="system-action-link">
+      ← Systemstatus
+    </a>
+
+  </div>
+
+
+  <% if (message) { %>
+
+    <div class="system-message">
+      <%= message %>
+    </div>
+
+  <% } %>
+
+
+  <h2 class="system-section-title">
+    OCR-Fehler
+    (<%= ocrErrors.length %>)
+  </h2>
+
+
+  <% if (ocrErrors.length === 0) { %>
+
+    <div class="system-empty">
+      Keine OCR-Fehler vorhanden.
+    </div>
+
+  <% } %>
+
+
+  <% for (const item of ocrErrors) { %>
+
+    <div class="system-error-card">
+
+      <div class="system-error-header">
+
+        <div>
+
+          <strong>
+            <%= item.title || item.original_filename %>
+          </strong>
+
+          <div class="system-detail">
+            <%= item.original_filename %>
+            ·
+            <%= errorDate(item.created_at) %>
+          </div>
+
+        </div>
+
+
+        <form
+          method="post"
+          action="/system/errors/ocr/<%= item.id %>/retry">
+
+          <input
+            type="hidden"
+            name="_csrf"
+            value="<%= csrfToken %>"
+          >
+
+          <button
+            type="submit"
+            class="system-retry-button">
+            OCR erneut versuchen
+          </button>
+
+        </form>
+
+      </div>
+
+
+      <pre class="system-error-text"><%= item.ocr_error || 'Keine Fehlerbeschreibung vorhanden.' %></pre>
+
+    </div>
+
+  <% } %>
+
+
+
+  <h2 class="system-section-title">
+    Metadatenanalyse
+    (<%= suggestionErrors.length %>)
+  </h2>
+
+
+  <% if (suggestionErrors.length === 0) { %>
+
+    <div class="system-empty">
+      Keine Fehler der Metadatenanalyse vorhanden.
+    </div>
+
+  <% } %>
+
+
+  <% for (const item of suggestionErrors) { %>
+
+    <div class="system-error-card">
+
+      <div class="system-error-header">
+
+        <div>
+
+          <strong>
+            <%= item.title || item.original_filename %>
+          </strong>
+
+          <div class="system-detail">
+            <%= item.original_filename %>
+            ·
+            <%= errorDate(item.created_at) %>
+          </div>
+
+        </div>
+
+
+        <form
+          method="post"
+          action="/system/errors/metadata/<%= item.id %>/retry">
+
+          <input
+            type="hidden"
+            name="_csrf"
+            value="<%= csrfToken %>"
+          >
+
+          <button
+            type="submit"
+            class="system-retry-button">
+            Analyse erneut versuchen
+          </button>
+
+        </form>
+
+      </div>
+
+
+      <pre class="system-error-text"><%= item.suggestion_error || 'Keine Fehlerbeschreibung vorhanden.' %></pre>
+
+    </div>
+
+  <% } %>
+
+
+
+  <h2 class="system-section-title">
+    Mailimport
+    (<%= mailErrors.length %>)
+  </h2>
+
+
+  <% if (mailErrors.length === 0) { %>
+
+    <div class="system-empty">
+      Keine Mailimportfehler vorhanden.
+    </div>
+
+  <% } %>
+
+
+  <% for (const item of mailErrors) { %>
+
+    <div class="system-error-card">
+
+      <div class="system-error-header">
+
+        <div>
+
+          <strong>
+            <%= item.subject || '(ohne Betreff)' %>
+          </strong>
+
+          <div class="system-detail">
+            <%= item.sender || 'Absender unbekannt' %>
+            ·
+            <%= errorDate(item.received_at || item.created_at) %>
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <pre class="system-error-text"><%= item.error || 'Keine Fehlerbeschreibung vorhanden.' %></pre>
+
+      <div class="system-detail">
+        Die Mail wird automatisch beim nächsten
+        Durchlauf erneut verarbeitet, solange sie sich
+        noch im Eingang befindet.
+      </div>
+
+    </div>
+
+  <% } %>
+
+</main>
+
+
+
+</div>
+
+</body>
+</html>

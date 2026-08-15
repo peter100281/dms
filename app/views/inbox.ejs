@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
+  <title>DMS – Sammler</title>
+
+  <link
+    rel="stylesheet"
+    href="/static/app.css"
+  >
+</head>
+
+<body>
+
+<header class="topbar">
+
+  <div>
+    <strong><%= appName %></strong>
+  </div>
+
+  <div class="topbar-right">
+    <span><%= username %></span>
+
+    <form
+      method="post"
+      action="/logout"
+    >
+      <input
+        type="hidden"
+        name="_csrf"
+        value="<%= csrfToken %>"
+      >
+
+      <button class="button-secondary">
+        Abmelden
+      </button>
+    </form>
+  </div>
+
+</header>
+
+
+<div class="app-layout">
+
+  <aside class="sidebar">
+
+    <nav>
+
+      <a
+        href="/inbox"
+        class="active"
+      >
+        📥 Sammler
+        <span class="badge">
+          <%= documents.length %>
+        </span>
+      </a>
+
+      <a href="/documents">📄 Dokumente</a>
+
+      <a href="/timeline">📅 Chronologisch</a>
+
+      <a href="/categories">🏷 Kategorien</a>
+
+      <a href="/search">🔎 Suche</a>
+
+      <a href="/trash">
+        🗑 Papierkorb
+      </a>
+
+      <% if (isAdmin) { %>
+      <a href="/account">👤 Mein Konto</a>
+
+      <a href="/settings">⚙ Einstellungen</a>
+      <a href="/system">⚙ System</a>
+      <a href="/users">👥 Benutzer</a>
+      <% } %>
+
+    </nav>
+
+  </aside>
+
+
+  <main class="content">
+
+    <div class="page-title">
+
+      <div>
+        <h1>Sammler</h1>
+
+        <p>
+          Neue Dokumente warten hier auf ihre Einsortierung.
+        </p>
+      </div>
+
+    </div>
+
+
+    <% if (message) { %>
+
+      <div class="message">
+        <%= message %>
+      </div>
+
+    <% } %>
+
+
+    <section class="upload-box">
+
+      <h2>Dokument hinzufügen</h2>
+
+      <form
+        method="post"
+        action="/upload"
+        enctype="multipart/form-data"
+        class="upload-form"
+      >
+
+        <input
+          type="hidden"
+          name="_csrf"
+          value="<%= csrfToken %>"
+        >
+
+        <input
+          type="file"
+          name="document"
+          accept="application/pdf,.pdf"
+          required
+        >
+
+        <button type="submit">
+          PDF hochladen
+        </button>
+
+      </form>
+
+    </section>
+
+
+    <section>
+
+      <div class="section-header">
+
+        <h2>
+          Eingang
+        </h2>
+
+        <span class="counter">
+          <%= documents.length %>
+        </span>
+
+      </div>
+
+
+      <% if (documents.length === 0) { %>
+
+        <div class="empty-state">
+
+          <div class="empty-icon">
+            📥
+          </div>
+
+          <h3>Der Sammler ist leer</h3>
+
+          <p>
+            Lade ein PDF hoch. Später erscheinen hier
+            auch automatisch die Scans aus dem
+            E-Mail-Postfach.
+          </p>
+
+        </div>
+
+      <% } %>
+
+
+      <div class="document-list">
+
+        <% documents.forEach(doc => { %>
+
+          <article class="document-card">
+
+            <div class="document-icon">
+              PDF
+            </div>
+
+            <div class="document-info">
+
+              <h3>
+                <%= doc.title %>
+              </h3>
+
+              <div class="document-meta">
+
+                <span>
+                  <%= new Date(doc.received_at).toLocaleString(
+                    'de-DE',
+                    {
+                      dateStyle: 'medium',
+                      timeStyle: 'short'
+                    }
+                  ) %>
+                </span>
+
+                <span>
+                  •
+                </span>
+
+                <% if (doc.page_count) { %>
+
+                  <span>
+                    <%= doc.page_count %>
+                    <%= Number(doc.page_count) === 1 ? 'Seite' : 'Seiten' %>
+                  </span>
+
+                  <span>•</span>
+
+                <% } %>
+
+                <span>
+                  <%= (
+                    Number(doc.file_size) /
+                    1024 /
+                    1024
+                  ).toFixed(2) %> MB
+                </span>
+
+                <span>
+                  •
+                </span>
+
+                <span>
+                  Quelle:
+                  <%= doc.source === 'upload'
+                    ? 'Upload'
+                    : doc.source === 'email'
+                      ? 'E-Mail'
+                      : doc.source
+                  %>
+                </span>
+
+              </div>
+
+              <div class="filename">
+                <%= doc.original_filename %>
+              </div>
+
+            </div>
+
+            <div class="document-actions">
+
+              <a
+                href="/documents/<%= doc.id %>/file"
+                target="_blank"
+                class="button-secondary"
+              >
+                Öffnen
+              </a>
+
+              <a
+                href="/documents/<%= doc.id %>/sort"
+                class="button-secondary"
+              >
+                Einsortieren
+              </a>
+
+              <form
+                method="post"
+                action="/documents/<%= doc.id %>/trash"
+              
+              data-confirm="Dokument wirklich in den Papierkorb verschieben?">
+
+                <input
+                  type="hidden"
+                  name="_csrf"
+                  value="<%= csrfToken %>"
+                >
+
+                <input
+                  type="hidden"
+                  name="return_to"
+                  value="/inbox"
+                >
+
+                <button
+                  type="submit"
+                  class="danger-button"
+                >
+                  Löschen
+                </button>
+              </form>
+
+            </div>
+
+          </article>
+
+        <% }); %>
+
+      </div>
+
+    </section>
+
+  </main>
+
+</div>
+
+
+<script
+  src="/static/app.js"
+  defer
+></script>
+
+</body>
+</html>

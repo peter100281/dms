@@ -1,0 +1,24 @@
+{
+  "name": "dms-app",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Persoenliches Dokumentenmanagementsystem",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "*",
+    "connect-pg-simple": "*",
+    "ejs": "*",
+    "express": "*",
+    "express-session": "*",
+    "helmet": "*",
+    "multer": "*",
+    "pg": "*",
+    "imapflow": "*",
+    "mailparser": "*",
+    "express-rate-limit": "*"
+  },
+  "license": "AGPL-3.0-only"
+}

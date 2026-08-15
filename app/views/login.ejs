@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+  <title>DMS – Anmeldung</title>
+
+  <link
+    rel="stylesheet"
+    href="/static/app.css"
+  >
+</head>
+
+<body class="login-page">
+
+  <main class="login-card">
+
+    <h1>Dokumentenarchiv</h1>
+
+    <p class="muted">
+      Persönliches Dokumentenmanagement
+    </p>
+
+    <% if (error) { %>
+      <div class="message error">
+        <%= error %>
+      </div>
+    <% } %>
+
+    <form
+      method="post"
+      action="/login"
+      class="form"
+    >
+
+      <input
+        type="hidden"
+        name="_csrf"
+        value="<%= csrfToken %>"
+      >
+
+      <label>
+        Benutzername
+        <input
+          type="text"
+          name="username"
+          autocomplete="username"
+          required
+        >
+      </label>
+
+      <label>
+        Passwort
+        <input
+          type="password"
+          name="password"
+          autocomplete="current-password"
+          required
+        >
+      </label>
+
+      <button type="submit">
+        Anmelden
+      </button>
+
+    </form>
+
+  </main>
+
+</body>
+</html>

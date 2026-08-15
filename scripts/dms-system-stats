@@ -1,0 +1,401 @@
+#!/usr/bin/env python3
+
+import json
+import os
+import shutil
+import subprocess
+import tempfile
+
+from datetime import datetime, timezone
+from pathlib import Path
+
+
+DMS_ROOT = Path(
+    os.environ.get(
+        "DMS_DATA_DIR",
+        "/data/dms"
+    )
+)
+
+STATUS_DIR = DMS_ROOT / "status"
+STATUS_FILE = STATUS_DIR / "system.json"
+
+
+CONTAINER_APP = os.environ.get(
+    "DMS_CONTAINER_APP",
+    "dms-app"
+)
+
+CONTAINER_POSTGRES = os.environ.get(
+    "DMS_CONTAINER_POSTGRES",
+    "dms-postgres"
+)
+
+CONTAINER_REDIS = os.environ.get(
+    "DMS_CONTAINER_REDIS",
+    "dms-redis"
+)
+
+CONTAINER_MAIL_IMPORTER = os.environ.get(
+    "DMS_CONTAINER_MAIL_IMPORTER",
+    "dms-mail-importer"
+)
+
+BACKUP_SERVICE = os.environ.get(
+    "DMS_BACKUP_SERVICE",
+    "dms-backup.service"
+)
+
+
+def run(cmd):
+    try:
+        result = subprocess.run(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            timeout=30
+        )
+
+        if result.returncode != 0:
+            return None
+
+        return result.stdout.strip()
+
+    except Exception:
+        return None
+
+
+def directory_size(path):
+    path = Path(path)
+
+    if not path.exists():
+        return None
+
+    result = run([
+        "du",
+        "-sb",
+        str(path)
+    ])
+
+    if not result:
+        return None
+
+    try:
+        return int(result.split()[0])
+
+    except Exception:
+        return None
+
+
+def docker_status(name):
+    raw = run([
+        "docker",
+        "inspect",
+        name,
+        "--format",
+        "{{json .State}}"
+    ])
+
+    if not raw:
+        return {
+            "exists": False,
+            "status": "unknown",
+            "health": "unknown",
+            "running": False
+        }
+
+    try:
+        state = json.loads(raw)
+
+    except Exception:
+        return {
+            "exists": True,
+            "status": "unknown",
+            "health": "unknown",
+            "running": False
+        }
+
+    health = (
+        state
+        .get("Health", {})
+        .get("Status")
+    )
+
+    return {
+        "exists": True,
+        "status": state.get(
+            "Status",
+            "unknown"
+        ),
+        "health": health or "none",
+        "running": bool(
+            state.get("Running")
+        ),
+        "started_at": state.get(
+            "StartedAt"
+        )
+    }
+
+
+def backup_information():
+    backup_root = DMS_ROOT / "backups"
+
+    result = {
+        "exists": backup_root.exists(),
+        "latest_name": None,
+        "latest_mtime": None,
+        "latest_age_seconds": None,
+        "service_result": None,
+        "service_exit_status": None
+    }
+
+    if backup_root.exists():
+        candidates = []
+
+        try:
+            for entry in backup_root.iterdir():
+
+                if not entry.is_dir():
+                    continue
+
+                try:
+                    stat = entry.stat()
+
+                    candidates.append(
+                        (
+                            stat.st_mtime,
+                            entry.name
+                        )
+                    )
+
+                except Exception:
+                    pass
+
+        except Exception:
+            pass
+
+
+        if candidates:
+            candidates.sort(reverse=True)
+
+            mtime, name = candidates[0]
+
+            latest_dt = datetime.fromtimestamp(
+                mtime,
+                timezone.utc
+            )
+
+            now = datetime.now(
+                timezone.utc
+            )
+
+            result["latest_name"] = name
+
+            result["latest_mtime"] = (
+                latest_dt.isoformat()
+            )
+
+            result["latest_age_seconds"] = int(
+                (
+                    now - latest_dt
+                ).total_seconds()
+            )
+
+
+    service = run([
+        "systemctl",
+        "show",
+        BACKUP_SERVICE,
+        "--property=Result",
+        "--property=ExecMainStatus"
+    ])
+
+    if service:
+        for line in service.splitlines():
+
+            if line.startswith("Result="):
+                result["service_result"] = (
+                    line.split(
+                        "=",
+                        1
+                    )[1]
+                )
+
+            elif line.startswith(
+                "ExecMainStatus="
+            ):
+                try:
+                    result[
+                        "service_exit_status"
+                    ] = int(
+                        line.split(
+                            "=",
+                            1
+                        )[1]
+                    )
+
+                except Exception:
+                    pass
+
+
+    return result
+
+
+def main():
+    STATUS_DIR.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    storage_paths = {
+        "originals":
+            DMS_ROOT / "originals",
+
+        "documents":
+            DMS_ROOT / "documents",
+
+        "mail":
+            DMS_ROOT / "mail",
+
+        "postgres":
+            DMS_ROOT / "postgres",
+
+        "redis":
+            DMS_ROOT / "redis",
+
+        "backups":
+            DMS_ROOT / "backups"
+    }
+
+    storage = {}
+    total_known = 0
+
+    for key, path in storage_paths.items():
+        size = directory_size(path)
+
+        storage[key] = {
+            "path": str(path),
+            "bytes": size
+        }
+
+        if size is not None:
+            total_known += size
+
+    storage[
+        "total_known_bytes"
+    ] = total_known
+
+
+    disk = shutil.disk_usage(
+        DMS_ROOT
+    )
+
+    percent = (
+        disk.used /
+        disk.total *
+        100
+    ) if disk.total else 0
+
+
+    containers = {
+        "app":
+            docker_status(
+                CONTAINER_APP
+            ),
+
+        "postgres":
+            docker_status(
+                CONTAINER_POSTGRES
+            ),
+
+        "redis":
+            docker_status(
+                CONTAINER_REDIS
+            ),
+
+        "mail_importer":
+            docker_status(
+                CONTAINER_MAIL_IMPORTER
+            )
+    }
+
+
+    data = {
+        "generated_at":
+            datetime.now(
+                timezone.utc
+            ).isoformat(),
+
+        "storage":
+            storage,
+
+        "disk": {
+            "total_bytes":
+                disk.total,
+
+            "used_bytes":
+                disk.used,
+
+            "free_bytes":
+                disk.free,
+
+            "used_percent":
+                round(
+                    percent,
+                    2
+                ),
+
+            "warning":
+                percent >= 80,
+
+            "critical":
+                percent >= 90
+        },
+
+        "containers":
+            containers,
+
+        "backup":
+            backup_information()
+    }
+
+
+    fd, tmp = tempfile.mkstemp(
+        prefix="system.",
+        suffix=".json",
+        dir=STATUS_DIR
+    )
+
+    try:
+        with os.fdopen(
+            fd,
+            "w"
+        ) as file:
+
+            json.dump(
+                data,
+                file,
+                indent=2,
+                ensure_ascii=False
+            )
+
+            file.write("\n")
+
+        os.chmod(
+            tmp,
+            0o644
+        )
+
+        os.replace(
+            tmp,
+            STATUS_FILE
+        )
+
+    finally:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+
+
+if __name__ == "__main__":
+    main()

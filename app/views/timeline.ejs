@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>DMS – Chronologisch</title>
+
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+
+<body>
+
+<header class="topbar">
+  <strong><%= appName %></strong>
+
+  <div class="topbar-right">
+    <span><%= username %></span>
+
+    <form method="post" action="/logout">
+      <input
+        type="hidden"
+        name="_csrf"
+        value="<%= csrfToken %>"
+      >
+
+      <button class="button-secondary">
+        Abmelden
+      </button>
+    </form>
+  </div>
+</header>
+
+
+<div class="app-layout">
+
+  <aside class="sidebar">
+    <nav>
+      <a href="/inbox">📥 Sammler</a>
+      <a href="/documents">📄 Dokumente</a>
+
+      <a href="/timeline" class="active">
+        📅 Chronologisch
+      </a>
+
+      <a href="/categories">
+        🏷 Kategorien
+      </a>
+
+      <a href="/search">
+        🔎 Suche
+      </a>
+
+      <a href="/trash">
+        🗑 Papierkorb
+      </a>
+
+      <% if (isAdmin) { %>
+      <a href="/account">👤 Mein Konto</a>
+
+      <a href="/settings">⚙ Einstellungen</a>
+      <a href="/system">⚙ System</a>
+      <a href="/users">👥 Benutzer</a>
+      <% } %>
+    </nav>
+  </aside>
+
+
+  <main class="content">
+
+    <div class="page-title">
+      <h1>Chronologisch</h1>
+
+      <p>
+        Alle archivierten Dokumente nach Dokumentdatum.
+      </p>
+    </div>
+
+
+    <% if (groups.length === 0) { %>
+
+      <div class="empty-state timeline-empty">
+        Noch keine Dokumente archiviert.
+      </div>
+
+    <% } %>
+
+
+    <% groups.forEach(group => { %>
+
+      <section class="timeline-month">
+
+        <h2 class="timeline-month-title">
+          <%= group.label %>
+        </h2>
+
+
+        <div class="timeline-documents">
+
+          <% group.documents.forEach(doc => { %>
+
+            <article class="timeline-document">
+
+              <div class="timeline-date">
+                <%= doc.date_label %>
+              </div>
+
+
+              <div class="timeline-marker"></div>
+
+
+              <div class="timeline-card">
+
+                <div class="timeline-card-main">
+
+                  <h3>
+                    <%= doc.title %>
+                  </h3>
+
+
+                  <div class="document-meta">
+
+                    <% if (doc.sender) { %>
+
+                      <span>
+                        <%= doc.sender %>
+                      </span>
+
+                    <% } %>
+
+
+                    <% if (doc.category_name) { %>
+
+                      <span>•</span>
+
+                      <span>
+                        🏷
+                        <%= doc.parent_category_name
+                          ? doc.parent_category_name + ' → ' + doc.category_name
+                          : doc.category_name
+                        %>
+                      </span>
+
+                    <% } %>
+
+                  </div>
+
+
+                  <% if (doc.reference) { %>
+
+                    <div class="archive-extra">
+                      Referenz:
+                      <strong><%= doc.reference %></strong>
+                    </div>
+
+                  <% } %>
+
+
+                  <% if (doc.tags) { %>
+
+                    <div class="tag-line">
+
+                      <% doc.tags.split(', ').forEach(tag => { %>
+
+                        <span class="tag">
+                          <%= tag %>
+                        </span>
+
+                      <% }); %>
+
+                    </div>
+
+                  <% } %>
+
+                </div>
+
+
+                <div class="document-actions">
+
+                  <a
+                    href="/documents/<%= doc.id %>/file"
+                    target="_blank"
+                    class="button-secondary"
+                  >
+                    Öffnen
+                  </a>
+
+                  <a
+                    href="/documents/<%= doc.id %>/sort"
+                    class="button-secondary"
+                  >
+                    Bearbeiten
+                  </a>
+
+                </div>
+
+              </div>
+
+            </article>
+
+          <% }); %>
+
+        </div>
+
+      </section>
+
+    <% }); %>
+
+  </main>
+
+</div>
+
+</body>
+</html>

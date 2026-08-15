@@ -1,0 +1,141 @@
+services:
+
+  postgres:
+    image: postgres:17-alpine
+    container_name: dms-postgres
+    restart: unless-stopped
+
+    environment:
+      TZ: ${TZ}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+
+    volumes:
+      - ${DMS_DATA_DIR:-/data/dms}/postgres:/var/lib/postgresql/data
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    networks:
+      - dms-internal
+
+
+  redis:
+    image: redis:7-alpine
+    container_name: dms-redis
+    restart: unless-stopped
+
+    environment:
+      TZ: ${TZ}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+
+    command:
+      [
+        "redis-server",
+        "--appendonly",
+        "yes",
+        "--requirepass",
+        "${REDIS_PASSWORD}"
+      ]
+
+    volumes:
+      - ${DMS_DATA_DIR:-/data/dms}/redis:/data
+
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "REDISCLI_AUTH=$${REDIS_PASSWORD} redis-cli ping | grep PONG"
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    networks:
+      - dms-internal
+
+
+  app:
+    build:
+      context: ./app
+
+    container_name: dms-app
+    restart: unless-stopped
+
+    environment:
+      TZ: ${TZ}
+
+      APP_PORT: ${APP_PORT}
+      APP_SECRET: ${APP_SECRET}
+      COOKIE_SECURE: ${COOKIE_SECURE}
+      TRUST_PROXY: ${TRUST_PROXY}
+
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+
+    volumes:
+      - ${DMS_DATA_DIR:-/data/dms}/originals:/data/originals
+      - ${DMS_DATA_DIR:-/data/dms}/documents:/data/documents
+      - ${DMS_DATA_DIR:-/data/dms}/temp:/data/temp
+
+      - ${DMS_DATA_DIR:-/data/dms}/status:/data/status:ro
+    ports:
+      - "${APP_BIND_ADDRESS:-127.0.0.1}:${APP_PORT:-3000}:3000"
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+      redis:
+        condition: service_healthy
+
+    networks:
+      - dms-internal
+
+
+  mail-importer:
+    build:
+      context: ./app
+
+    container_name: dms-mail-importer
+    restart: unless-stopped
+
+    command:
+      [
+        "node",
+        "mail-importer.js"
+      ]
+
+    environment:
+      TZ: ${TZ}
+
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+
+      APP_SECRET: ${APP_SECRET}
+
+    volumes:
+      - ${DMS_DATA_DIR:-/data/dms}/originals:/data/originals
+      - ${DMS_DATA_DIR:-/data/dms}/mail:/data/mail
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+    networks:
+      - dms-internal
+
+
+networks:
+  dms-internal:
+    name: dms-internal

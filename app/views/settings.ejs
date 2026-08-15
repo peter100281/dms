@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
+  <title><%= appName %> – Einstellungen</title>
+
+  <link
+    rel="stylesheet"
+    href="/static/app.css"
+  >
+</head>
+
+<body>
+
+<header class="topbar">
+
+  <strong><%= appName %></strong>
+
+  <div class="topbar-right">
+    <span><%= username %></span>
+
+    <form method="post" action="/logout">
+      <input
+        type="hidden"
+        name="_csrf"
+        value="<%= csrfToken %>"
+      >
+
+      <button class="button-secondary">
+        Abmelden
+      </button>
+    </form>
+  </div>
+
+</header>
+
+
+<div class="app-layout">
+
+  <aside class="sidebar">
+
+    <nav>
+      <a href="/inbox">📥 Sammler</a>
+      <a href="/documents">📄 Dokumente</a>
+      <a href="/timeline">📅 Chronologisch</a>
+      <a href="/categories">🏷 Kategorien</a>
+      <a href="/search">🔎 Suche</a>
+      <a href="/trash">🗑 Papierkorb</a>
+
+      <a href="/account">👤 Mein Konto</a>
+
+      <% if (isAdmin) { %>
+      <a href="/settings" class="active">
+        ⚙ Einstellungen
+      </a>
+      <a href="/system">
+        ⚙ System
+      </a>
+
+      <a href="/users">👥 Benutzer</a>
+      <% } %>
+    </nav>
+
+  </aside>
+
+
+  <main class="content">
+
+    <div class="page-title">
+
+      <h1>Einstellungen</h1>
+
+      <p>
+        Grundeinstellungen für das Dokumentenmanagement.
+      </p>
+
+    </div>
+
+
+    <% if (message) { %>
+
+      <div class="message">
+        <%= message %>
+      </div>
+
+    <% } %>
+
+
+    <form
+      method="post"
+      action="/settings"
+      class="settings-form"
+    >
+      <input
+        type="hidden"
+        name="_csrf"
+        value="<%= csrfToken %>"
+      >
+
+
+
+      <section class="settings-card">
+
+        <h2>Allgemein</h2>
+
+
+        <label class="settings-field">
+
+          <span>
+            Name der Anwendung
+          </span>
+
+          <input
+            type="text"
+            name="app_name"
+            value="<%= settings.app_name %>"
+            maxlength="80"
+            required
+          >
+
+          <small>
+            Wird oben in der Anwendung angezeigt.
+          </small>
+
+        </label>
+
+
+        <label class="settings-checkbox">
+
+          <input
+            type="checkbox"
+            name="require_document_date"
+            <%= settings.require_document_date === 'true'
+              ? 'checked'
+              : ''
+            %>
+          >
+
+          <span>
+            <strong>
+              Dokumentdatum verpflichtend
+            </strong>
+
+            <small>
+              Dokumente können dann erst archiviert
+              werden, wenn ein Dokumentdatum angegeben wurde.
+            </small>
+          </span>
+
+        </label>
+
+
+        <label class="settings-field">
+
+          <span>
+            Standardkategorie
+          </span>
+
+          <select name="default_category_id">
+
+            <option value="">
+              Keine Standardkategorie
+            </option>
+
+            <% categories.forEach(category => { %>
+
+              <option
+                value="<%= category.id %>"
+                <%= settings.default_category_id === category.id
+                  ? 'selected'
+                  : ''
+                %>
+              >
+
+                <%= category.parent_name
+                  ? category.parent_name
+                    + ' → '
+                    + category.name
+                  : category.name
+                %>
+
+              </option>
+
+            <% }); %>
+
+          </select>
+
+          <small>
+            Wird bei neuen Dokumenten beim Einsortieren
+            automatisch vorausgewählt.
+          </small>
+
+        </label>
+
+      </section>
+
+
+      <section class="settings-card">
+
+        <h2>OCR</h2>
+
+        <p class="settings-description">
+          Aktive Sprachen für die automatische Texterkennung.
+          Mehrere Sprachen können gleichzeitig aktiviert sein.
+        </p>
+
+
+        <% const ocr = settings.ocr_languages.split('+'); %>
+
+
+        <div class="ocr-language-grid">
+
+
+          <label class="settings-checkbox">
+
+            <input
+              type="checkbox"
+              name="ocr_languages"
+              value="deu"
+              <%= ocr.includes('deu')
+                ? 'checked'
+                : ''
+              %>
+            >
+
+            <span>
+              <strong>Deutsch</strong>
+              <small>deu</small>
+            </span>
+
+          </label>
+
+
+          <label class="settings-checkbox">
+
+            <input
+              type="checkbox"
+              name="ocr_languages"
+              value="eng"
+              <%= ocr.includes('eng')
+                ? 'checked'
+                : ''
+              %>
+            >
+
+            <span>
+              <strong>Englisch</strong>
+              <small>eng</small>
+            </span>
+
+          </label>
+
+
+          <label class="settings-checkbox">
+
+            <input
+              type="checkbox"
+              name="ocr_languages"
+              value="nld"
+              <%= ocr.includes('nld')
+                ? 'checked'
+                : ''
+              %>
+            >
+
+            <span>
+              <strong>Niederländisch</strong>
+              <small>nld</small>
+            </span>
+
+          </label>
+
+
+          <label class="settings-checkbox">
+
+            <input
+              type="checkbox"
+              name="ocr_languages"
+              value="swe"
+              <%= ocr.includes('swe')
+                ? 'checked'
+                : ''
+              %>
+            >
+
+            <span>
+              <strong>Schwedisch</strong>
+              <small>swe</small>
+            </span>
+
+          </label>
+
+
+        </div>
+
+
+        <div class="settings-info">
+
+          Änderungen an den OCR-Sprachen gelten für
+          <strong>neu verarbeitete Dokumente</strong>.
+          Bereits erfolgreich erkannte PDFs werden nicht
+          erneut verarbeitet.
+
+        </div>
+
+      </section>
+
+
+      <section class="settings-card">
+
+        <h2>Scanner / Mailimport</h2>
+
+        <p class="settings-description">
+          PDF-Anhänge können automatisch aus einem
+          IMAP-Postfach in den Sammler übernommen werden.
+        </p>
+
+
+        <label class="settings-checkbox">
+
+          <input
+            type="checkbox"
+            name="mail_enabled"
+            <%= mailSettings.enabled
+              ? 'checked'
+              : ''
+            %>
+          >
+
+          <span>
+            <strong>Mailimport aktivieren</strong>
+
+            <small>
+              Der Importer prüft das konfigurierte
+              Postfach automatisch.
+            </small>
+          </span>
+
+        </label>
+
+
+        <label class="settings-field">
+
+          <span>IMAP-Server</span>
+
+          <input
+            type="text"
+            name="mail_host"
+            value="<%= mailSettings.host %>"
+            placeholder="imap.example.org"
+            maxlength="255"
+          >
+
+        </label>
+
+
+        <label class="settings-field">
+
+          <span>IMAP-Port</span>
+
+          <input
+            type="number"
+            name="mail_port"
+            value="<%= mailSettings.port %>"
+            min="1"
+            max="65535"
+          >
+
+        </label>
+
+
+        <label class="settings-checkbox">
+
+          <input
+            type="checkbox"
+            name="mail_secure"
+            <%= mailSettings.secure
+              ? 'checked'
+              : ''
+            %>
+          >
+
+          <span>
+            <strong>SSL/TLS verwenden</strong>
+
+            <small>
+              Für IMAPS normalerweise aktiviert
+              (typischerweise Port 993).
+            </small>
+          </span>
+
+        </label>
+
+
+        <label class="settings-field">
+
+          <span>Benutzername</span>
+
+          <input
+            type="text"
+            name="mail_username"
+            value="<%= mailSettings.username %>"
+            autocomplete="off"
+            maxlength="255"
+          >
+
+        </label>
+
+
+        <label class="settings-field">
+
+          <span>Passwort</span>
+
+          <input
+            type="password"
+            name="mail_password"
+            value=""
+            autocomplete="new-password"
+            placeholder="<%= mailSettings.passwordConfigured
+              ? 'Kennwort ist gespeichert'
+              : 'Kennwort eingeben'
+            %>"
+          >
+
+          <small>
+            <% if (mailSettings.passwordConfigured) { %>
+              Ein Kennwort ist verschlüsselt gespeichert.
+              Feld leer lassen, um es beizubehalten.
+            <% } else { %>
+              Noch kein Kennwort hinterlegt.
+            <% } %>
+          </small>
+
+        </label>
+
+
+        <label class="settings-field">
+
+          <span>Postfach</span>
+
+          <input
+            type="text"
+            name="mail_mailbox"
+            value="<%= mailSettings.mailbox %>"
+            maxlength="255"
+          >
+
+          <small>
+            Normalerweise <code>INBOX</code>.
+          </small>
+
+        </label>
+
+
+        <label class="settings-field">
+
+          <span>Ordner für verarbeitete Mails</span>
+
+          <input
+            type="text"
+            name="mail_processed_folder"
+            value="<%= mailSettings.processedFolder %>"
+            maxlength="255"
+          >
+
+          <small>
+            Erfolgreich verarbeitete Nachrichten werden
+            in diesen IMAP-Ordner verschoben.
+          </small>
+
+        </label>
+
+
+        <label class="settings-field">
+
+          <span>Abfrageintervall in Sekunden</span>
+
+          <input
+            type="number"
+            name="mail_poll_seconds"
+            value="<%= mailSettings.pollSeconds %>"
+            min="10"
+            max="3600"
+          >
+
+          <small>
+            Zulässig: 10 bis 3600 Sekunden.
+          </small>
+
+        </label>
+
+
+        <div class="settings-info">
+
+          Status:
+          <strong>
+            <%= mailSettings.enabled
+              ? 'aktiviert'
+              : 'deaktiviert'
+            %>
+          </strong>
+
+          · Kennwort:
+          <strong>
+            <%= mailSettings.passwordConfigured
+              ? 'hinterlegt'
+              : 'nicht hinterlegt'
+            %>
+          </strong>
+
+        </div>
+
+      </section>
+
+
+      <div class="settings-actions">
+
+        <button
+          type="submit"
+          class="settings-save-button"
+        >
+          Einstellungen speichern
+        </button>
+
+        <button
+          type="submit"
+          class="button-secondary"
+          formaction="/settings/mail/test"
+          formmethod="post"
+          formtarget="_blank"
+        >
+          IMAP-Verbindung testen
+        </button>
+
+      </div>
+
+    </form>
+
+  </main>
+
+</div>
+
+</body>
+</html>

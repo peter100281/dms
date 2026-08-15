@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
+  <title><%= appName %> – Benutzer</title>
+
+  <link
+    rel="stylesheet"
+    href="/static/app.css"
+  >
+</head>
+
+<body>
+
+<header class="topbar">
+
+  <strong><%= appName %></strong>
+
+  <div class="topbar-right">
+    <span><%= displayName || username %></span>
+
+    <form method="post" action="/logout">
+      <input
+        type="hidden"
+        name="_csrf"
+        value="<%= csrfToken %>"
+      >
+
+      <button class="button-secondary">
+        Abmelden
+      </button>
+    </form>
+  </div>
+
+</header>
+
+
+<div class="app-layout">
+
+  <aside class="sidebar">
+
+    <nav>
+      <a href="/inbox">📥 Sammler</a>
+      <a href="/documents">📄 Dokumente</a>
+      <a href="/timeline">📅 Chronologisch</a>
+      <a href="/categories">🏷 Kategorien</a>
+      <a href="/search">🔎 Suche</a>
+      <a href="/trash">🗑 Papierkorb</a>
+      <a href="/account">👤 Mein Konto</a>
+
+      <a href="/settings">⚙ Einstellungen</a>
+      <a href="/system">⚙ System</a>
+
+      <a href="/users" class="active">👥 Benutzer</a>
+    </nav>
+
+  </aside>
+
+
+  <main class="content">
+
+    <div class="page-title">
+      <h1>Benutzerverwaltung</h1>
+
+      <p>
+        Benutzerkonten, Rollen und Zugänge verwalten.
+      </p>
+    </div>
+
+
+    <% if (message) { %>
+
+      <div class="message">
+        <%= message %>
+      </div>
+
+    <% } %>
+
+
+    <section class="settings-card user-create-card">
+
+      <h2>Neuen Benutzer anlegen</h2>
+
+      <form
+        method="post"
+        action="/users/create"
+        class="user-create-form"
+      >
+      <input
+        type="hidden"
+        name="_csrf"
+        value="<%= csrfToken %>"
+      >
+
+
+        <label>
+          Benutzername
+
+          <input
+            type="text"
+            name="username"
+            minlength="3"
+            maxlength="50"
+            required
+          >
+        </label>
+
+
+        <label>
+          Anzeigename
+
+          <input
+            type="text"
+            name="display_name"
+            maxlength="80"
+            placeholder="optional"
+          >
+        </label>
+
+
+        <label>
+          Initiales Passwort
+
+          <input
+            type="password"
+            name="password"
+            minlength="10"
+            autocomplete="new-password"
+            required
+          >
+        </label>
+
+
+        <label class="settings-checkbox user-role-checkbox">
+
+          <input
+            type="checkbox"
+            name="is_admin"
+          >
+
+          <span>
+            <strong>Administrator</strong>
+
+            <small>
+              Darf Einstellungen, Benutzer und
+              endgültiges Löschen verwalten.
+            </small>
+          </span>
+
+        </label>
+
+
+        <button type="submit">
+          Benutzer anlegen
+        </button>
+
+      </form>
+
+    </section>
+
+
+    <section class="user-list-section">
+
+      <h2>Vorhandene Benutzer</h2>
+
+
+      <div class="user-list">
+
+        <% users.forEach(user => { %>
+
+          <article class="user-card">
+
+            <div class="user-card-header">
+
+              <div>
+
+                <h3>
+                  <%= user.display_name || user.username %>
+
+                  <% if (user.id === currentUserId) { %>
+                    <span class="user-self">
+                      Du
+                    </span>
+                  <% } %>
+                </h3>
+
+                <div class="user-username">
+                  <%= user.username %>
+                </div>
+
+              </div>
+
+
+              <div>
+
+                <% if (!user.is_active) { %>
+
+                  <span class="status-badge inactive">
+                    deaktiviert
+                  </span>
+
+                <% } else if (user.is_admin) { %>
+
+                  <span class="status-badge admin">
+                    Administrator
+                  </span>
+
+                <% } else { %>
+
+                  <span class="status-badge">
+                    Benutzer
+                  </span>
+
+                <% } %>
+
+              </div>
+
+            </div>
+
+
+            <form
+              method="post"
+              action="/users/<%= user.id %>/update"
+              class="user-edit-form"
+            >
+
+              <input
+                type="hidden"
+                name="_csrf"
+                value="<%= csrfToken %>"
+              >
+
+
+              <label>
+                Anzeigename
+
+                <input
+                  type="text"
+                  name="display_name"
+                  value="<%= user.display_name || '' %>"
+                >
+              </label>
+
+
+              <label class="user-option">
+
+                <input
+                  type="checkbox"
+                  name="is_admin"
+                  <%= user.is_admin ? 'checked' : '' %>
+                >
+
+                <span>
+                  <strong>Administrator</strong>
+                </span>
+
+              </label>
+
+
+              <label class="user-option">
+
+                <input
+                  type="checkbox"
+                  name="is_active"
+                  <%= user.is_active ? 'checked' : '' %>
+                >
+
+                <span>
+                  <strong>Konto aktiv</strong>
+                </span>
+
+              </label>
+
+
+              <button type="submit">
+                Speichern
+              </button>
+
+            </form>
+
+
+            <div class="user-card-footer">
+
+              <div class="user-last-login">
+
+                <% if (user.last_login_at) { %>
+
+                  Letzte Anmeldung:
+                  <%= new Date(
+                    user.last_login_at
+                  ).toLocaleString('de-DE') %>
+
+                <% } else { %>
+
+                  Noch nie angemeldet
+
+                <% } %>
+
+              </div>
+
+
+              <form
+                method="post"
+                action="/users/<%= user.id %>/password"
+                class="password-reset-form"
+              >
+                <input
+                  type="hidden"
+                  name="_csrf"
+                  value="<%= csrfToken %>"
+                >
+
+                <input
+                  type="password"
+                  name="password"
+                  minlength="10"
+                  placeholder="Neues Passwort"
+                  autocomplete="new-password"
+                  required
+                >
+
+                <button
+                  type="submit"
+                  class="button-secondary"
+                >
+                  Passwort setzen
+                </button>
+
+              </form>
+
+            </div>
+
+          </article>
+
+        <% }); %>
+
+      </div>
+
+    </section>
+
+  </main>
+
+</div>
+
+</body>
+</html>

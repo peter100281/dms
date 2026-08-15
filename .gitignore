@@ -1,0 +1,44 @@
+# Lokale Konfiguration / Secrets
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+app/node_modules/
+
+# Logs
+*.log
+npm-debug.log*
+
+# Entwicklungs-Backups
+*.bak-*
+*.backup
+*.old
+
+# Temporäre Dateien
+*.tmp
+*.swp
+*~
+
+# Editoren / Betriebssystem
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Lokale Daten / Exporte
+*.dump
+*.sql
+*.tar
+*.tar.gz
+*.zip
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Weitere Entwicklungs-Sicherungen
+*.pre-*
+*.bak*

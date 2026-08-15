@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
+  <title><%= appName %> – Mein Konto</title>
+
+  <link
+    rel="stylesheet"
+    href="/static/app.css"
+  >
+</head>
+
+<body>
+
+<header class="topbar">
+
+  <strong><%= appName %></strong>
+
+  <div class="topbar-right">
+    <span><%= displayName || username %></span>
+
+    <form method="post" action="/logout">
+      <input
+        type="hidden"
+        name="_csrf"
+        value="<%= csrfToken %>"
+      >
+
+      <button class="button-secondary">
+        Abmelden
+      </button>
+    </form>
+  </div>
+
+</header>
+
+
+<div class="app-layout">
+
+  <aside class="sidebar">
+
+    <nav>
+      <a href="/inbox">📥 Sammler</a>
+      <a href="/documents">📄 Dokumente</a>
+      <a href="/timeline">📅 Chronologisch</a>
+      <a href="/categories">🏷 Kategorien</a>
+      <a href="/search">🔎 Suche</a>
+      <a href="/trash">🗑 Papierkorb</a>
+
+      <a
+        href="/account"
+        class="active"
+      >
+        👤 Mein Konto
+      </a>
+
+      <% if (isAdmin) { %>
+
+        <a href="/settings">
+          ⚙ Einstellungen
+        </a>
+        <a href="/system">
+          ⚙ System
+        </a>
+
+        <a href="/users">
+          👥 Benutzer
+        </a>
+
+      <% } %>
+
+    </nav>
+
+  </aside>
+
+
+  <main class="content">
+
+    <div class="page-title">
+      <h1>Mein Konto</h1>
+
+      <p>
+        Persönliche Zugangsdaten verwalten.
+      </p>
+    </div>
+
+
+    <% if (message) { %>
+
+      <div class="message">
+        <%= message %>
+      </div>
+
+    <% } %>
+
+
+    <% if (error) { %>
+
+      <div class="message error">
+        <%= error %>
+      </div>
+
+    <% } %>
+
+
+    <section class="settings-card account-info-card">
+
+      <h2>Benutzerkonto</h2>
+
+
+      <dl class="detail-list">
+
+        <dt>
+          Benutzername
+        </dt>
+
+        <dd>
+          <%= user.username %>
+        </dd>
+
+
+        <dt>
+          Anzeigename
+        </dt>
+
+        <dd>
+          <%= user.display_name || user.username %>
+        </dd>
+
+
+        <dt>
+          Rolle
+        </dt>
+
+        <dd>
+          <%= user.is_admin
+            ? 'Administrator'
+            : 'Benutzer'
+          %>
+        </dd>
+
+
+        <dt>
+          Konto erstellt
+        </dt>
+
+        <dd>
+          <%= new Date(
+            user.created_at
+          ).toLocaleDateString('de-DE') %>
+        </dd>
+
+
+        <dt>
+          Letzte Anmeldung
+        </dt>
+
+        <dd>
+
+          <% if (user.last_login_at) { %>
+
+            <%= new Date(
+              user.last_login_at
+            ).toLocaleString(
+              'de-DE',
+              {
+                dateStyle: 'medium',
+                timeStyle: 'short'
+              }
+            ) %>
+
+          <% } else { %>
+
+            –
+
+          <% } %>
+
+        </dd>
+
+      </dl>
+
+    </section>
+
+
+    <section class="settings-card">
+
+      <h2>Passwort ändern</h2>
+
+
+      <form
+        method="post"
+        action="/account/password/change"
+        class="account-password-form"
+      >
+
+        <input
+          type="hidden"
+          name="_csrf"
+          value="<%= csrfToken %>"
+        >
+
+        <label>
+          Aktuelles Passwort
+
+          <input
+            type="password"
+            name="current_password"
+            autocomplete="current-password"
+            required
+          >
+        </label>
+
+
+        <label>
+          Neues Passwort
+
+          <input
+            type="password"
+            name="new_password"
+            minlength="10"
+            autocomplete="new-password"
+            required
+          >
+
+          <small>
+            Mindestens 10 Zeichen.
+          </small>
+        </label>
+
+
+        <label>
+          Neues Passwort wiederholen
+
+          <input
+            type="password"
+            name="confirm_password"
+            minlength="10"
+            autocomplete="new-password"
+            required
+          >
+        </label>
+
+
+        <button type="submit">
+          Passwort ändern
+        </button>
+
+      </form>
+
+    </section>
+
+  </main>
+
+</div>
+
+</body>
+</html>

@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
+  <title>Systemstatus – <%= appName %></title>
+
+  <link
+    rel="stylesheet"
+    href="/static/app.css"
+  >
+</head>
+
+<body>
+
+<header class="topbar">
+
+  <strong><%= appName %></strong>
+
+  <div class="topbar-right">
+    <span><%= username %></span>
+
+    <form method="post" action="/logout">
+      <input
+        type="hidden"
+        name="_csrf"
+        value="<%= csrfToken %>"
+      >
+
+      <button class="button-secondary">
+        Abmelden
+      </button>
+    </form>
+  </div>
+
+</header>
+
+
+<div class="app-layout">
+
+  <aside class="sidebar">
+
+    <nav>
+      <a href="/inbox">📥 Sammler</a>
+      <a href="/documents">📄 Dokumente</a>
+      <a href="/timeline">📅 Chronologisch</a>
+      <a href="/categories">🏷 Kategorien</a>
+      <a href="/search">🔎 Suche</a>
+      <a href="/trash">🗑 Papierkorb</a>
+
+      <a href="/account">👤 Mein Konto</a>
+
+      <% if (isAdmin) { %>
+      <a href="/settings">
+        ⚙ Einstellungen
+      </a>
+      <a href="/system" class="active">
+        ⚙ System
+      </a>
+
+      <a href="/users">👥 Benutzer</a>
+      <% } %>
+    </nav>
+
+  </aside>
+
+
+  
+<main class="container system-page">
+
+  <%
+    function statusFormatBytes(bytes) {
+      const n = Number(bytes || 0);
+
+      if (n < 1024)
+        return n + ' B';
+
+      if (n < 1024 * 1024)
+        return (n / 1024).toFixed(1) + ' KB';
+
+      if (n < 1024 * 1024 * 1024)
+        return (n / 1024 / 1024).toFixed(1) + ' MB';
+
+      return (
+        n / 1024 / 1024 / 1024
+      ).toFixed(2) + ' GB';
+    }
+
+
+    function statusDate(value) {
+      if (!value)
+        return 'Noch nicht verfügbar';
+
+      const d = new Date(value);
+
+      if (Number.isNaN(d.getTime()))
+        return String(value);
+
+      return d.toLocaleString(
+        'de-DE'
+      );
+    }
+
+
+    function containerOk(container) {
+      return !!(
+        container &&
+        container.running === true
+      );
+    }
+
+
+    const hs =
+      hostStatus || {};
+
+    const storage =
+      hs.storage || {};
+
+    const disk =
+      hs.disk || {};
+
+    const containers =
+      hs.containers || {};
+
+    const backup =
+      hs.backup || {};
+
+    const generatedAge =
+      hs.generated_at
+        ? Math.round(
+            (
+              Date.now() -
+              new Date(
+                hs.generated_at
+              ).getTime()
+            ) / 1000
+          )
+        : null;
+
+    const collectorOk =
+      generatedAge !== null &&
+      generatedAge >= 0 &&
+      generatedAge < 180;
+
+    const diskPercent =
+      Number(
+        disk.used_percent || 0
+      );
+
+    const diskClass =
+      diskPercent >= 90
+        ? 'system-critical'
+        : (
+            diskPercent >= 80
+              ? 'system-warning'
+              : 'system-ok'
+          );
+  %>
+
+
+  <div class="page-header">
+    <div>
+      <h1>Systemstatus</h1>
+
+      <p class="muted">
+        Zustand und Speicherbelegung des Dokumentenarchivs
+      </p>
+    </div>
+  </div>
+
+
+  <% if (hostStatusError) { %>
+
+    <div class="system-alert system-critical">
+      Der Host-Status konnte nicht gelesen werden:
+      <%= hostStatusError %>
+    </div>
+
+  <% } %>
+
+
+  <div class="system-status-grid">
+
+    <div class="system-card">
+
+      <div class="system-card-title">
+        PostgreSQL
+      </div>
+
+      <div class="system-status-line system-ok">
+        ● OK
+      </div>
+
+      <div class="system-detail">
+        Antwortzeit:
+        <strong><%= dbLatencyMs %> ms</strong>
+      </div>
+
+    </div>
+
+
+    <div class="system-card">
+
+      <div class="system-card-title">
+        Redis
+      </div>
+
+      <div class="system-status-line <%= containerOk(containers.redis) ? 'system-ok' : 'system-critical' %>">
+        ●
+        <%= containerOk(containers.redis) ? 'OK' : 'Nicht verfügbar' %>
+      </div>
+
+      <div class="system-detail">
+        <%= containers.redis?.health || containers.redis?.status || 'unbekannt' %>
+      </div>
+
+    </div>
+
+
+    <div class="system-card">
+
+      <div class="system-card-title">
+        OCR
+      </div>
+
+      <div class="system-status-line <%= Number(documentStats.ocr_errors || 0) > 0 ? 'system-warning' : 'system-ok' %>">
+        ●
+        <%= Number(documentStats.ocr_errors || 0) > 0 ? 'Fehler vorhanden' : 'OK' %>
+      </div>
+
+      <div class="system-detail">
+        Pending:
+        <%= documentStats.ocr_pending || 0 %>
+        · Verarbeitung:
+        <%= documentStats.ocr_processing || 0 %>
+      </div>
+
+    </div>
+
+
+    <div class="system-card">
+
+      <div class="system-card-title">
+        Mailimport
+      </div>
+
+      <div class="system-status-line <%= containerOk(containers.mail_importer) ? 'system-ok' : 'system-critical' %>">
+        ●
+        <%= containerOk(containers.mail_importer) ? 'OK' : 'Nicht verfügbar' %>
+      </div>
+
+      <div class="system-detail">
+        Letzter Import:
+        <strong>
+          <%= statusDate(mailStats.last_imported_at) %>
+        </strong>
+      </div>
+
+    </div>
+
+
+    <div class="system-card">
+
+      <div class="system-card-title">
+        Metadatenanalyse
+      </div>
+
+      <div class="system-status-line <%= Number(documentStats.suggestion_errors || 0) > 0 ? 'system-warning' : 'system-ok' %>">
+        ●
+        <%= Number(documentStats.suggestion_errors || 0) > 0 ? 'Fehler vorhanden' : 'OK' %>
+      </div>
+
+      <div class="system-detail">
+        Pending:
+        <%= documentStats.suggestion_pending || 0 %>
+        · Verarbeitung:
+        <%= documentStats.suggestion_processing || 0 %>
+      </div>
+
+    </div>
+
+
+    <div class="system-card">
+
+      <div class="system-card-title">
+        Status-Collector
+      </div>
+
+      <div class="system-status-line <%= collectorOk ? 'system-ok' : 'system-warning' %>">
+        ●
+        <%= collectorOk ? 'OK' : 'Veraltet' %>
+      </div>
+
+      <div class="system-detail">
+        Aktualisiert:
+        <%= statusDate(hs.generated_at) %>
+      </div>
+
+    </div>
+
+  </div>
+
+
+  <h2 class="system-section-title">
+    Speicher
+  </h2>
+
+
+  <div class="system-storage-grid">
+
+    <div class="system-storage-card">
+      <span>Original-PDFs</span>
+      <strong>
+        <%= statusFormatBytes(storage.originals?.bytes) %>
+      </strong>
+    </div>
+
+    <div class="system-storage-card">
+      <span>OCR-PDFs</span>
+      <strong>
+        <%= statusFormatBytes(storage.documents?.bytes) %>
+      </strong>
+    </div>
+
+    <div class="system-storage-card">
+      <span>E-Mail-Archiv</span>
+      <strong>
+        <%= statusFormatBytes(storage.mail?.bytes) %>
+      </strong>
+    </div>
+
+    <div class="system-storage-card">
+      <span>PostgreSQL</span>
+      <strong>
+        <%= statusFormatBytes(storage.postgres?.bytes) %>
+      </strong>
+    </div>
+
+    <div class="system-storage-card">
+      <span>Redis</span>
+      <strong>
+        <%= statusFormatBytes(storage.redis?.bytes) %>
+      </strong>
+    </div>
+
+    <div class="system-storage-card">
+      <span>Lokale Backups</span>
+      <strong>
+        <%= statusFormatBytes(storage.backups?.bytes) %>
+      </strong>
+    </div>
+
+  </div>
+
+
+  <div class="system-disk-card">
+
+    <div class="system-disk-header">
+
+      <div>
+        <strong>Datenträger /data/dms</strong>
+
+        <div class="system-detail">
+          <%= statusFormatBytes(disk.used_bytes) %>
+          von
+          <%= statusFormatBytes(disk.total_bytes) %>
+          belegt
+        </div>
+      </div>
+
+      <div class="system-disk-percent <%= diskClass %>">
+        <%= diskPercent.toLocaleString('de-DE') %> %
+      </div>
+
+    </div>
+
+
+    <progress
+      class="system-progress <%= diskClass %>"
+      max="100"
+      value="<%= Math.min(100, diskPercent) %>"
+      aria-label="Speicherbelegung"
+    >
+      <%= Math.min(100, diskPercent) %> %
+    </progress>
+
+
+    <% if (diskPercent >= 90) { %>
+
+      <div class="system-alert system-critical">
+        Kritisch: Der Datenträger ist zu mindestens 90 % belegt.
+      </div>
+
+    <% } else if (diskPercent >= 80) { %>
+
+      <div class="system-alert system-warning">
+        Warnung: Der Datenträger ist zu mindestens 80 % belegt.
+      </div>
+
+    <% } %>
+
+  </div>
+
+
+  <h2 class="system-section-title">
+    Fehler und Warteschlangen
+  </h2>
+
+
+  <div class="system-storage-grid">
+
+    <div class="system-storage-card">
+      <span>OCR-Fehler</span>
+      <strong>
+        <%= documentStats.ocr_errors || 0 %>
+      </strong>
+    </div>
+
+    <div class="system-storage-card">
+      <span>Metadatenfehler</span>
+      <strong>
+        <%= documentStats.suggestion_errors || 0 %>
+      </strong>
+    </div>
+
+    <div class="system-storage-card">
+      <span>Mailimportfehler</span>
+      <strong>
+        <%= mailStats.errors || 0 %>
+      </strong>
+    </div>
+
+    <div class="system-storage-card">
+      <span>Dokumente im Sammler</span>
+      <strong>
+        <%= documentStats.inbox_count || 0 %>
+      </strong>
+    </div>
+
+  </div>
+
+
+  <div class="system-errors-action">
+
+    <a
+      href="/system/errors"
+      class="system-action-link">
+      Fehlerdetails anzeigen →
+    </a>
+
+  </div>
+
+
+
+  <h2 class="system-section-title">
+    Backup
+  </h2>
+
+
+  <div class="system-backup-card">
+
+    <div>
+      Letztes lokales Backup:
+      <strong>
+        <%= statusDate(backup.latest_mtime) %>
+      </strong>
+    </div>
+
+    <div class="system-detail">
+      Status Dienst:
+      <strong>
+        <%= backup.service_result || 'unbekannt' %>
+      </strong>
+    </div>
+
+    <div class="system-detail">
+      Backup-Verzeichnis:
+      <strong>
+        <%= backup.latest_name || '—' %>
+      </strong>
+    </div>
+
+  </div>
+
+</main>
+
+
+</div>
+
+</body>
+</html>

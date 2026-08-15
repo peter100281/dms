@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
+  <title>DMS – Suche</title>
+
+  <link
+    rel="stylesheet"
+    href="/static/app.css"
+  >
+</head>
+
+<body>
+
+<header class="topbar">
+
+  <strong><%= appName %></strong>
+
+  <div class="topbar-right">
+    <span><%= username %></span>
+
+    <form method="post" action="/logout">
+      <input
+        type="hidden"
+        name="_csrf"
+        value="<%= csrfToken %>"
+      >
+
+      <button class="button-secondary">
+        Abmelden
+      </button>
+    </form>
+  </div>
+
+</header>
+
+
+<div class="app-layout">
+
+  <aside class="sidebar">
+
+    <nav>
+      <a href="/inbox">📥 Sammler</a>
+      <a href="/documents">📄 Dokumente</a>
+      <a href="/timeline">📅 Chronologisch</a>
+      <a href="/categories">🏷 Kategorien</a>
+
+      <a
+        href="/search"
+        class="active"
+      >
+        🔎 Suche
+      </a>
+
+      <a href="/trash">
+        🗑 Papierkorb
+      </a>
+
+      <% if (isAdmin) { %>
+      <a href="/account">👤 Mein Konto</a>
+
+      <a href="/settings">⚙ Einstellungen</a>
+      <a href="/system">⚙ System</a>
+      <a href="/users">👥 Benutzer</a>
+      <% } %>
+    </nav>
+
+  </aside>
+
+
+  <main class="content">
+
+    <div class="page-title">
+
+      <h1>Suche</h1>
+
+      <p>
+        Dokumente nach Metadaten durchsuchen.
+      </p>
+
+    </div>
+
+
+    <form
+      method="get"
+      action="/search"
+      class="search-form"
+    >
+
+      <input
+        type="search"
+        name="q"
+        value="<%= q %>"
+        placeholder="z. B. Finanzamt, Vodafone, Steuer 2025 ..."
+        autofocus
+      >
+
+      <button type="submit">
+        Suchen
+      </button>
+
+    </form>
+
+
+    <% if (q) { %>
+
+      <div class="search-summary">
+
+        <strong>
+          <%= documents.length %>
+        </strong>
+
+        Treffer für
+
+        <strong>
+          „<%= q %>“
+        </strong>
+
+      </div>
+
+    <% } %>
+
+
+    <% if (!q) { %>
+
+      <div class="empty-state search-empty">
+
+        <div class="empty-icon">
+          🔎
+        </div>
+
+        <h3>Dokumente durchsuchen</h3>
+
+        <p>
+          Durchsucht werden Titel, Absender, Referenz,
+          Bemerkungen, Kategorien, Tags und der erkannte
+          Text innerhalb der Dokumente.
+        </p>
+
+      </div>
+
+    <% } %>
+
+
+    <% if (q && documents.length === 0) { %>
+
+      <div class="empty-state">
+
+        <h3>Keine Treffer</h3>
+
+        <p>
+          Für „<%= q %>“ wurde kein Dokument gefunden.
+        </p>
+
+      </div>
+
+    <% } %>
+
+
+    <div class="archive-list">
+
+      <% documents.forEach(doc => { %>
+
+        <article class="document-card archive-card">
+
+          <div class="document-icon">
+            PDF
+          </div>
+
+
+          <div class="document-info">
+
+            <h3>
+              <%= doc.title %>
+            </h3>
+
+
+            <div class="document-meta">
+
+              <% if (doc.document_date_iso) { %>
+
+                <span>
+                  📅
+                  <%= doc.document_date_iso
+                    .split('-')
+                    .reverse()
+                    .join('.')
+                  %>
+                </span>
+
+              <% } %>
+
+
+              <% if (doc.sender) { %>
+
+                <span>•</span>
+
+                <span>
+                  <%= doc.sender %>
+                </span>
+
+              <% } %>
+
+
+              <% if (doc.category_name) { %>
+
+                <span>•</span>
+
+                <span>
+                  🏷
+                  <%= doc.parent_category_name
+                    ? doc.parent_category_name
+                      + ' → '
+                      + doc.category_name
+                    : doc.category_name
+                  %>
+                </span>
+
+              <% } %>
+
+            </div>
+
+
+            <% if (doc.reference) { %>
+
+              <div class="archive-extra">
+                Referenz:
+                <strong>
+                  <%= doc.reference %>
+                </strong>
+              </div>
+
+            <% } %>
+
+
+            <% if (doc.tags) { %>
+
+              <div class="tag-line">
+
+                <% doc.tags
+                  .split(', ')
+                  .forEach(tag => { %>
+
+                  <span class="tag">
+                    <%= tag %>
+                  </span>
+
+                <% }); %>
+
+              </div>
+
+            <% } %>
+
+          </div>
+
+
+          <div class="document-actions">
+
+            <a
+              href="/documents/<%= doc.id %>/file"
+              target="_blank"
+              class="button-secondary"
+            >
+              Öffnen
+            </a>
+
+            <a
+              href="/documents/<%= doc.id %>/sort"
+              class="button-secondary"
+            >
+              Bearbeiten
+            </a>
+
+          </div>
+
+        </article>
+
+      <% }); %>
+
+    </div>
+
+  </main>
+
+</div>
+
+</body>
+</html>

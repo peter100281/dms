@@ -1,0 +1,12 @@
+[Unit]
+Description=DMS Systemstatus aktualisieren
+After=docker.service
+Wants=docker.service
+
+[Service]
+Type=oneshot
+
+Environment=DMS_DATA_DIR=/data/dms
+EnvironmentFile=-/etc/default/dms-system-stats
+
+ExecStart=/usr/local/sbin/dms-system-stats

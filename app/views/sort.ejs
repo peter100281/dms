@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
+  <title>DMS – Dokument einsortieren</title>
+
+  <link
+    rel="stylesheet"
+    href="/static/app.css"
+  >
+</head>
+
+
+<body>
+
+<%
+  const suggestions =
+    document.metadata_suggestions || {};
+
+  const originalBase =
+    String(document.original_filename || '')
+      .replace(/\.[^.]+$/, '');
+
+  const suggestedTitle =
+    (
+      suggestions.title &&
+      (
+        !document.title ||
+        document.title === originalBase
+      )
+    )
+      ? suggestions.title
+      : document.title;
+
+  const suggestedDate =
+    document.document_date
+      ? String(document.document_date).slice(0, 10)
+      : (suggestions.document_date || '');
+
+  const suggestedSender =
+    document.sender ||
+    suggestions.sender ||
+    '';
+
+  const suggestedReference =
+    document.reference ||
+    suggestions.reference ||
+    '';
+
+  const suggestedCategory =
+    document.category_id ||
+    suggestions.category_id ||
+    defaultCategoryId ||
+    '';
+
+  const suggestedTags =
+    tags ||
+    (
+      Array.isArray(suggestions.tags)
+        ? suggestions.tags.join(', ')
+        : ''
+    );
+
+  const hasSuggestions =
+    suggestions &&
+    Object.keys(suggestions).some(
+      key => key !== 'confidence'
+    );
+%>
+
+
+<header class="topbar">
+
+  <strong><%= appName %></strong>
+
+  <div class="topbar-right">
+    <span><%= username %></span>
+
+    <form method="post" action="/logout">
+      <input
+        type="hidden"
+        name="_csrf"
+        value="<%= csrfToken %>"
+      >
+
+      <button class="button-secondary">
+        Abmelden
+      </button>
+    </form>
+  </div>
+
+</header>
+
+
+<div class="app-layout">
+
+  <aside class="sidebar">
+
+    <nav>
+
+      <a href="/inbox">
+        📥 Sammler
+      </a>
+
+      <a href="/documents">
+        📄 Dokumente
+      </a>
+
+      <a href="/timeline">📅 Chronologisch</a>
+
+      <a href="/categories">
+        🏷 Kategorien
+      </a>
+
+      <a href="/search">🔎 Suche</a>
+
+      <a href="/trash">
+        🗑 Papierkorb
+      </a>
+
+      <% if (isAdmin) { %>
+      <a href="/account">👤 Mein Konto</a>
+
+      <a href="/settings">⚙ Einstellungen</a>
+      <a href="/system">⚙ System</a>
+      <a href="/users">👥 Benutzer</a>
+      <% } %>
+
+    </nav>
+
+  </aside>
+
+
+  <main class="content wide-content">
+
+    <div class="page-title">
+
+      <div>
+        <h1>Dokument einsortieren</h1>
+
+        <p>
+          Metadaten ergänzen und anschließend archivieren.
+        </p>
+      </div>
+
+    </div>
+
+
+    <div class="sorting-layout">
+
+      <section class="pdf-panel">
+
+        <iframe
+          src="/documents/<%= document.id %>/file"
+          class="pdf-frame"
+          title="PDF-Vorschau"
+        ></iframe>
+
+        <a
+          class="button-secondary pdf-open-button"
+          href="/documents/<%= document.id %>/file"
+          target="_blank"
+        >
+          PDF in neuem Fenster öffnen
+        </a>
+
+      </section>
+
+
+      <section class="metadata-panel">
+
+        <% if (hasSuggestions) { %>
+
+          <div class="ocr-suggestion-info">
+
+            <strong>✨ OCR-Vorschläge</strong>
+
+            <div>
+              Einige Felder wurden anhand des erkannten
+              Dokumentinhalts vorausgefüllt.
+              Bitte prüfen und bei Bedarf ändern.
+            </div>
+
+          </div>
+
+        <% } %>
+
+        <form
+          method="post"
+          action="/documents/<%= document.id %>/archive"
+          class="metadata-form"
+        >
+
+          <input
+            type="hidden"
+            name="_csrf"
+            value="<%= csrfToken %>"
+          >
+
+          <label>
+            Titel *
+
+            <input
+              type="text"
+              name="title"
+              value="<%= suggestedTitle %>"
+              required
+              autofocus
+            >
+          </label>
+
+
+          <label>
+            Dokumentdatum
+
+            <input
+              type="date"
+              name="document_date"
+              value="<%= suggestedDate %>"
+            >
+          </label>
+
+
+          <label>
+            Absender
+
+            <input
+              type="text"
+              name="sender"
+              value="<%= suggestedSender %>"
+              placeholder="z. B. Finanzamt Köln"
+            >
+          </label>
+
+
+          <label>
+            Aktenzeichen / Referenz
+
+            <input
+              type="text"
+              name="reference"
+              value="<%= suggestedReference %>"
+              placeholder="optional"
+            >
+          </label>
+
+
+          <label>
+            Kategorie
+
+            <select name="category_id">
+
+              <option value="">
+                – keine Kategorie –
+              </option>
+
+              <% categories.forEach(category => { %>
+
+                <option
+                  value="<%= category.id %>"
+                  <%= suggestedCategory === category.id
+                    ? 'selected'
+                    : ''
+                  %>
+                >
+                  <%= category.parent_name
+                    ? category.parent_name + ' → ' + category.name
+                    : category.name
+                  %>
+                </option>
+
+              <% }); %>
+
+            </select>
+
+          </label>
+
+
+          <label>
+            Tags
+
+            <div class="tag-input-wrapper">
+
+              <input
+                type="text"
+                id="tags-input"
+                name="tags"
+                value="<%= suggestedTags %>"
+                placeholder="z. B. Steuer 2025, Bescheid, Einspruch"
+                autocomplete="off"
+              >
+
+              <div
+                id="tag-suggestions"
+                class="tag-suggestions"
+                hidden
+              ></div>
+
+            </div>
+
+            <small>
+              Mehrere Tags mit Komma trennen.
+            </small>
+          </label>
+
+
+          <label>
+            Bemerkung
+
+            <textarea
+              name="notes"
+              rows="6"
+              placeholder="Optionale Notizen zum Dokument"
+            ><%= document.notes || '' %></textarea>
+          </label>
+
+
+          <div class="document-origin">
+
+            <strong>Original:</strong>
+            <%= document.original_filename %>
+
+            <br>
+
+            <strong>Eingang:</strong>
+            <%= new Date(document.received_at).toLocaleString(
+              'de-DE',
+              {
+                dateStyle: 'medium',
+                timeStyle: 'short'
+              }
+            ) %>
+
+            <br>
+
+            <strong>Quelle:</strong>
+            <%= document.source %>
+
+          </div>
+
+
+          <div class="archive-actions">
+
+            <button
+              type="submit"
+              class="archive-button"
+              name="after_archive"
+              value="archive"
+            >
+              ✓ Dokument archivieren
+            </button>
+
+
+            <button
+              type="submit"
+              class="archive-button archive-next-button"
+              name="after_archive"
+              value="next"
+              title="Archivieren und direkt das nächste Dokument im Sammler öffnen"
+            >
+              ✓ Archivieren &amp; nächstes →
+            </button>
+
+          </div>
+
+        </form>
+
+
+        <div class="quick-category">
+
+          <h3>Neue Kategorie</h3>
+
+          <form
+            method="post"
+            action="/categories/create"
+          >
+              <input
+                type="hidden"
+                name="_csrf"
+                value="<%= csrfToken %>"
+              >
+
+
+            <input
+              type="hidden"
+              name="return_to"
+              value="/documents/<%= document.id %>/sort"
+            >
+
+            <input
+              type="text"
+              name="name"
+              placeholder="Neue Kategorie"
+              required
+            >
+
+            <select name="parent_id">
+
+              <option value="">
+                Hauptkategorie
+              </option>
+
+              <% categories
+                .filter(category => !category.parent_id)
+                .forEach(category => { %>
+
+                <option value="<%= category.id %>">
+                  Unterhalb von <%= category.name %>
+                </option>
+
+              <% }); %>
+
+            </select>
+
+            <button type="submit">
+              Kategorie hinzufügen
+            </button>
+
+          </form>
+
+        </div>
+
+      </section>
+
+    </div>
+
+  </main>
+
+</div>
+
+<script
+  src="/static/tags.js"
+  defer
+></script>
+
+</body>
+</html>

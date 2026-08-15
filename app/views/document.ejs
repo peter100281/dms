@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1"
+  >
+
+  <title>
+    DMS – <%= document.title %>
+  </title>
+
+  <link
+    rel="stylesheet"
+    href="/static/app.css"
+  >
+</head>
+
+<body>
+
+<header class="topbar">
+
+  <strong><%= appName %></strong>
+
+  <div class="topbar-right">
+
+    <span><%= username %></span>
+
+    <form method="post" action="/logout">
+      <input
+        type="hidden"
+        name="_csrf"
+        value="<%= csrfToken %>"
+      >
+
+      <button class="button-secondary">
+        Abmelden
+      </button>
+    </form>
+
+  </div>
+
+</header>
+
+
+<div class="app-layout">
+
+  <aside class="sidebar">
+
+    <nav>
+      <a href="/inbox">
+        📥 Sammler
+      </a>
+
+      <a
+        href="/documents"
+        class="active"
+      >
+        📄 Dokumente
+      </a>
+
+      <a href="/timeline">
+        📅 Chronologisch
+      </a>
+
+      <a href="/categories">
+        🏷 Kategorien
+      </a>
+
+      <a href="/search">
+        🔎 Suche
+      </a>
+
+      <a href="/trash">
+        🗑 Papierkorb
+      </a>
+
+      <% if (isAdmin) { %>
+      <a href="/account">👤 Mein Konto</a>
+
+      <a href="/settings">⚙ Einstellungen</a>
+      <a href="/system">⚙ System</a>
+      <a href="/users">👥 Benutzer</a>
+      <% } %>
+    </nav>
+
+  </aside>
+
+
+  <main class="content wide-content">
+
+    <div class="document-detail-header">
+
+      <div>
+
+        <a
+          href="/documents"
+          class="detail-back"
+        >
+          ← Zurück zum Archiv
+        </a>
+
+        <h1>
+          <%= document.title %>
+        </h1>
+
+      </div>
+
+
+      <div class="document-detail-actions">
+
+        <a
+          href="/documents/<%= document.id %>/file"
+          target="_blank"
+          class="button-secondary"
+        >
+          PDF öffnen
+        </a>
+
+        <a
+          href="/documents/<%= document.id %>/sort"
+          class="button-secondary"
+        >
+          Bearbeiten
+        </a>
+
+      </div>
+
+    </div>
+
+
+    <div class="document-detail-layout">
+
+      <section class="pdf-panel">
+
+        <iframe
+          src="/documents/<%= document.id %>/file"
+          class="pdf-frame"
+          title="PDF-Vorschau"
+        ></iframe>
+
+      </section>
+
+
+      <section class="detail-metadata">
+
+        <h2>
+          Dokumentdaten
+        </h2>
+
+
+        <dl class="detail-list">
+
+          <dt>
+            Dokumentdatum
+          </dt>
+
+          <dd>
+            <%= document.document_date
+              ? new Date(
+                  document.document_date
+                ).toLocaleDateString('de-DE')
+              : '–'
+            %>
+          </dd>
+
+
+          <dt>
+            Kategorie
+          </dt>
+
+          <dd>
+
+            <% if (document.category_name) { %>
+
+              <%= document.parent_category_name
+                ? document.parent_category_name
+                  + ' → '
+                  + document.category_name
+                : document.category_name
+              %>
+
+            <% } else { %>
+
+              –
+
+            <% } %>
+
+          </dd>
+
+
+          <dt>
+            Absender
+          </dt>
+
+          <dd>
+            <%= document.sender || '–' %>
+          </dd>
+
+
+          <dt>
+            Referenz
+          </dt>
+
+          <dd>
+            <%= document.reference || '–' %>
+          </dd>
+
+
+          <dt>
+            Tags
+          </dt>
+
+          <dd>
+
+            <% if (document.tags) { %>
+
+              <div class="tag-line detail-tags">
+
+                <% document.tags
+                  .split(', ')
+                  .forEach(tag => { %>
+
+                  <span class="tag">
+                    <%= tag %>
+                  </span>
+
+                <% }); %>
+
+              </div>
+
+            <% } else { %>
+
+              –
+
+            <% } %>
+
+          </dd>
+
+
+          <dt>
+            Bemerkung
+          </dt>
+
+          <dd class="detail-notes">
+            <%= document.notes || '–' %>
+          </dd>
+
+        </dl>
+
+
+        <h2 class="detail-section-title">
+          Technische Informationen
+        </h2>
+
+
+        <dl class="detail-list technical">
+
+          <dt>
+            Originaldatei
+          </dt>
+
+          <dd>
+            <%= document.original_filename %>
+          </dd>
+
+
+          <dt>
+            Eingang
+          </dt>
+
+          <dd>
+            <%= new Date(
+              document.received_at
+            ).toLocaleString(
+              'de-DE',
+              {
+                dateStyle: 'medium',
+                timeStyle: 'short'
+              }
+            ) %>
+          </dd>
+
+
+          <dt>
+            Quelle
+          </dt>
+
+          <dd>
+            <%= document.source === 'email'
+              ? 'E-Mail / Scanner'
+              : document.source === 'upload'
+                ? 'Manueller Upload'
+                : document.source
+            %>
+          </dd>
+
+
+          <dt>
+            Seiten
+          </dt>
+
+          <dd>
+            <%= document.page_count || '–' %>
+          </dd>
+
+
+          <dt>
+            Dateigröße
+          </dt>
+
+          <dd>
+            <%= (
+              Number(document.file_size) /
+              1024 /
+              1024
+            ).toFixed(2) %> MB
+          </dd>
+
+
+          <dt>
+            OCR
+          </dt>
+
+          <dd>
+
+            <% if (document.ocr_status === 'done') { %>
+
+              ✓ abgeschlossen
+              (<%= document.ocr_chars %> Zeichen erkannt)
+
+            <% } else if (
+              document.ocr_status === 'processing'
+            ) { %>
+
+              Verarbeitung läuft
+
+            <% } else if (
+              document.ocr_status === 'error'
+            ) { %>
+
+              Fehler
+
+            <% } else { %>
+
+              ausstehend
+
+            <% } %>
+
+          </dd>
+
+
+          <dt>
+            SHA-256
+          </dt>
+
+          <dd class="hash-value">
+            <%= document.sha256 %>
+          </dd>
+
+        </dl>
+
+      </section>
+
+    </div>
+
+  </main>
+
+</div>
+
+</body>
+</html>
