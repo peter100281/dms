@@ -22,7 +22,7 @@ openssl version
 ## Repository herunterladen
 
 ~~~bash
-git clone https://github.com/DEIN-GITHUB-NAME/dms.git
+git clone https://github.com/peter100281/dms.git
 cd dms
 ~~~
 

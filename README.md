@@ -46,7 +46,7 @@ CPU-Leistung sinnvoll.
 Repository klonen und in das Projektverzeichnis wechseln:
 
 ~~~bash
-git clone https://github.com/DEIN-GITHUB-NAME/dms.git
+git clone https://github.com/peter100281/dms.git
 cd dms
 ~~~
 
